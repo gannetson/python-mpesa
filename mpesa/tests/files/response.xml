@@ -1,0 +1,6 @@
+<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:req="http://api-v1.gen.mm.vodafone.com/mminterface/request">
+   <soapenv:Header/>
+   <soapenv:Body>
+      <req:ResponseMsg><![CDATA[<?xml version="1.0" encoding="UTF-8"?><response xmlns="http://api-v1.gen.mm.vodafone.com/mminterface/response"><ResponseCode>00000000</ResponseCode><ResponseDesc>success</ResponseDesc><ConversationID></ConversationID><OriginatorConversationID></OriginatorConversationID><ServiceStatus>0</ServiceStatus></response>]]></req:ResponseMsg>
+   </soapenv:Body>
+</soapenv:Envelope>

@@ -1,0 +1,8 @@
+**.pyc
+.DS_Store
+*.orig
+.idea
+.eggs
+*.sqlite3
+*.eggs
+*.egg-info
