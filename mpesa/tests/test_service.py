@@ -9,4 +9,5 @@ class TestReponse(TestCase):
         file = open('mpesa/tests/files/response-success.xml')
         xml = file.read()
         data = service._parse_checkout_response(xml)
-        self.assertEqual(data, 'yeas')
+        self.assertEqual(data['description'], 'Success')
+        self.assertEqual(data['mpesa_txn'], 'cce3d32e0159c1e62a9ec45b67676200')
