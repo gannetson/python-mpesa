@@ -3,17 +3,9 @@ from unittest import TestCase
 from mpesa.services import PaymentService
 
 
-class TestReponse(TestCase):
+class TestRequests(TestCase):
 
-    def test_response(self):
-        service = PaymentService(merchant_id=123, merchant_passkey='topsecret')
-        file = open('mpesa/tests/files/response-success.xml')
-        xml = file.read()
-        data = service._parse_checkout_response(xml)
-        self.assertEqual(data['description'], 'Success')
-        self.assertEqual(data['mpesa_txn'], 'cce3d32e0159c1e62a9ec45b67676200')
-
-    def test_request(self):
+    def test_live_request(self):
         service = PaymentService(merchant_id='demo', merchant_passkey='demo')
         response = service.checkout_request()
         self.assertEqual(response.DESCRIPTION, 'Success')
@@ -21,3 +13,15 @@ class TestReponse(TestCase):
         self.assertEqual(response.CUST_MSG, ("To complete this transaction, enter your "
                                              "PIN on your handset. If you don't have a "
                                              "PIN, press 0 and follow the instructions."))
+
+        transaction_id = response.TRX_ID
+
+        # Check confirm transaction request too
+        response = service.confirm_transaction(transaction_id)
+        self.assertEqual(response.DESCRIPTION, 'Success')
+
+        # Check transaction status
+        response = service.transaction_status_query(transaction_id)
+        self.assertEqual(response.TRX_STATUS, 'Pending')
+        self.assertEqual(response.AMOUNT, '500')
+        self.assertEqual(response.MSISDN, '254700000000')
