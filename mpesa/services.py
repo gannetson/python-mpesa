@@ -2,7 +2,6 @@ import time
 import suds
 import hashlib
 import base64
-import xml.etree.ElementTree as ET
 
 import logging
 
@@ -13,12 +12,13 @@ logging.getLogger('suds').setLevel(logging.WARN)
 class PaymentService(object):
 
     wsdl = 'https://www.safaricom.co.ke/mpesa_online/lnmo_checkout_server.php?wsdl'
+
     demo = False
     demo_merchant_id = '898998'
     demo_timestamp = '20160510161908'
     demo_password = 'ZmRmZDYwYzIzZDQxZDc5ODYwMTIzYjUxNzNkZDMwMDRjNGRkZTY2ZDQ3ZTI0YjVjODc4ZTExNTNjMDA1YTcwNw=='
 
-    def __init__(self, merchant_id='demo', merchant_passkey='demo', debug=False):
+    def __init__(self, merchant_id='demo', merchant_passkey='demo'):
         if merchant_id == 'demo':
             self.demo = True
             self.merchant_id = self.demo_merchant_id
@@ -62,7 +62,6 @@ class PaymentService(object):
         )
         return response
 
-
     def transaction_status_query(self, transaction_id):
         if self.demo:
             timestamp = self.demo_timestamp
@@ -77,14 +76,9 @@ class PaymentService(object):
         )
         return response
 
-
-    def checkout_request(self):
-        merchant_transaction_id = 'order-9876-{0}'.format(time.time())
-        reference_id = 'project-1234'
-        msisdn = '254700000000'
-        amount = 500
-        enc_params = None
-        callback_url = 'http://localhost:8000/payments_mpesa/status'
+    def checkout_request(self, merchant_transaction_id=None, reference_id=None,
+                         msisdn=None, amount=None, enc_params=None,
+                         callback_url=None):
         callback_method = 'xml'
         if self.demo:
             timestamp = self.demo_timestamp
