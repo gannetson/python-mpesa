@@ -30,7 +30,6 @@ setuptools.setup(
     classifiers=[
         'Environment :: Web Environment',
         'Intended Audience :: Developers',
-        'License :: OSI Approved :: None',
         'Operating System :: OS Independent',
         'Programming Language :: Python',
         'Topic :: Internet :: WWW/HTTP',

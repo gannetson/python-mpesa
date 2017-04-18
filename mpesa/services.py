@@ -26,7 +26,6 @@ class PaymentService(object):
             self.merchant_id = merchant_id
 
         self.merchant_passkey = merchant_passkey
-        self.debug = debug
         self.client = suds.client.Client(self.wsdl)
 
         # Make sure locations for methods are correctly set
