@@ -89,7 +89,6 @@ class PaymentService(object):
             "TransactionDesc": description
         }
         url = self.server + self.process_request_path
-        import ipdb; ipdb.set_trace()
         response = requests.post(url, json=request, headers=headers)
 
         # SUCCESS example

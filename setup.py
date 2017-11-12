@@ -18,7 +18,8 @@ setuptools.setup(
     author="Loek van Gent",
     author_email="hallo@loekvan.gent",
     install_requires=[
-        'suds'
+        'suds',
+        'requests[security]'
     ],
     tests_require=[
         'nose'
