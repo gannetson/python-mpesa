@@ -21,6 +21,7 @@ class PaymentService(object):
     access_token_path = '/oauth/v1/generate?grant_type=client_credentials'
     process_request_path = '/mpesa/stkpush/v1/processrequest'
     query_request_path = '/mpesa/stkpushquery/v1/query'
+    simulate_path = '/mpesa/c2b/v1/simulate'
 
     balance_request_path = '/mpesa/accountbalance/v1/query'
 
@@ -91,18 +92,6 @@ class PaymentService(object):
         url = self.server + self.process_request_path
         response = requests.post(url, json=request, headers=headers)
 
-        # SUCCESS example
-        # u'CustomerMessage': u'Success. Request accepted for processing',
-        # u'CheckoutRequestID': u'ws_CO_13102017145401020',
-        # u'ResponseDescription': u'Success. Request accepted for processing',
-        # u'MerchantRequestID': u'29122-733990-1',
-        # u'ResponseCode': u'0'
-
-        # ERROR example
-        # u'errorCode': u'400.002.05',
-        # u'errorMessage': u'Invalid Request Payload',
-        # u'requestId': u'29128-733679-1'
-
         data = response.json()
 
         if response.status_code == 200:
@@ -138,6 +127,51 @@ class PaymentService(object):
             "CheckoutRequestID": request_id
         }
         url = self.server + self.query_request_path
+        response = requests.post(url, json=request, headers=headers)
+
+        data = response.json()
+
+        if response.status_code == 200:
+            status = 'started'
+            if data['ResultCode'] == '1001':
+                status = 'settled'
+            return {
+                'response': data,
+                'status': status,
+            }
+        else:
+            status = 'started'
+
+            return {
+                'response': data,
+                'status': status,
+                'error': data['errorMessage'],
+            }
+
+    def fake(self, amount, phone_number, reference=None, shortcode=None):
+        # Do a a fake payment (sandbox only)
+        if not shortcode:
+            shortcode = self.shortcode
+
+        timestamp = now().strftime('%Y%m%d%H%M%S')
+        access_token = self.get_access_token()
+        if not access_token:
+            return {
+                'response': {},
+                'status': 'failed',
+                'error': 'Could not get access token',
+                'request_id': ''
+            }
+
+        headers = {"Authorization": "Bearer %s" % access_token}
+        request = {
+            "CommandID": "CustomerPayBillOnline",
+            "Amount": self._generate_password(timestamp),
+            "Msisdn": timestamp,
+            "BillRefNumber": reference,
+            "ShortCode": shortcode
+        }
+        url = self.server + self.simulate_path
         response = requests.post(url, json=request, headers=headers)
 
         data = response.json()
