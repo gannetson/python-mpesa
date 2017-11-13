@@ -2,13 +2,9 @@ import base64
 import hashlib
 import logging
 import requests
-import suds
-import time
+from datetime import datetime
 
-from django.utils.timezone import now
-
-logging.basicConfig(level=logging.WARN)
-logging.getLogger('suds').setLevel(logging.WARN)
+logger = logging.getLogger(__name__)
 
 
 class PaymentService(object):
@@ -21,7 +17,8 @@ class PaymentService(object):
     access_token_path = '/oauth/v1/generate?grant_type=client_credentials'
     process_request_path = '/mpesa/stkpush/v1/processrequest'
     query_request_path = '/mpesa/stkpushquery/v1/query'
-    simulate_path = '/mpesa/c2b/v1/simulate'
+    transaction_status_path = '/mpesa/transactionstatus/v1/query'
+    simulate_transaction_path = '/mpesa/c2b/v1/simulate'
 
     balance_request_path = '/mpesa/accountbalance/v1/query'
 
@@ -37,10 +34,13 @@ class PaymentService(object):
         '1001': 'started',
     }
 
-    def __init__(self, consumer_key, consumer_password, shortcode=None, passphrase=None, live=False):
+    def __init__(self, consumer_key, consumer_password, shortcode=None, passphrase=None, live=False, debug=False):
         self.consumer_key = consumer_key
         self.consumer_password = consumer_password
         self.live = live
+        self.debug = debug
+        if debug:
+            logger.debug('Initiated M-Pesa Payment Service')
         if not live:
             self.server = self.test_server
             self.shortcode = self.test_shortcode
@@ -75,7 +75,7 @@ class PaymentService(object):
             }
 
         headers = {"Authorization": "Bearer %s" % access_token}
-        timestamp = now().strftime('%Y%m%d%H%M%S')
+        timestamp = datetime.now().strftime('%Y%m%d%H%M%S')
         request = {
             "BusinessShortCode": self.shortcode,
             "Password": self._generate_password(timestamp),
@@ -91,8 +91,11 @@ class PaymentService(object):
         }
         url = self.server + self.process_request_path
         response = requests.post(url, json=request, headers=headers)
-
         data = response.json()
+        if self.debug:
+            logging.debug('URL: {}'.format(url))
+            logging.debug('Request payload:\n {}'.format(request))
+            logging.debug('Response {}:\n {}'.format(response.status_code, data))
 
         if response.status_code == 200:
             return {
@@ -109,7 +112,7 @@ class PaymentService(object):
             }
 
     def query_request(self, request_id):
-        timestamp = now().strftime('%Y%m%d%H%M%S')
+        timestamp = datetime.now().strftime('%Y%m%d%H%M%S')
         access_token = self.get_access_token()
         if not access_token:
             return {
@@ -126,10 +129,14 @@ class PaymentService(object):
             "Timestamp": timestamp,
             "CheckoutRequestID": request_id
         }
-        url = self.server + self.query_request_path
+        url = self.server + self.simulate_transaction_path
         response = requests.post(url, json=request, headers=headers)
 
         data = response.json()
+        if self.debug:
+            logging.debug('URL: {}'.format(url))
+            logging.debug('Request payload:\n {}'.format(request))
+            logging.debug('Response {}:\n {}'.format(response.status_code, data))
 
         if response.status_code == 200:
             status = 'started'
@@ -148,13 +155,66 @@ class PaymentService(object):
                 'error': data['errorMessage'],
             }
 
-    def fake(self, amount, phone_number, reference=None, shortcode=None):
-        # Do a a fake payment (sandbox only)
+    def transaction_status_request(self, phone_number, reference):
+        timestamp = datetime.now().strftime('%Y%m%d%H%M%S')
+        access_token = self.get_access_token()
+
+        if not access_token:
+            return {
+                'response': {},
+                'status': 'failed',
+                'error': 'Could not get access token',
+                'request_id': ''
+            }
+
+        timeout_url = 'https://api.twende.co.ke/payments/update-timeout'
+        result_url = 'https://api.twende.co.ke/payments/update-result'
+
+        headers = {"Authorization": "Bearer %s" % access_token}
+        request = {
+            "CommandID": 'TransactionStatusQuery',
+            "PartyA": phone_number,
+            "IdentifierType": 'MSISDN',
+            "Remarks": "Payment for Twende ride",
+            "Initiator": self.shortcode,
+            "SecurityCredential": '',
+            "QueueTimeOutURL": timeout_url,
+            "ResultURL": result_url,
+            "TransactionID": reference,
+            "OriginalConversationID": reference,
+            "Occasion": '',
+        }
+        url = self.server + self.transaction_status_path
+        response = requests.post(url, json=request, headers=headers)
+        data = response.json()
+        if self.debug:
+            logging.debug('URL: {}'.format(url))
+            logging.debug('Request payload:\n {}'.format(request))
+            logging.debug('Response {}:\n {}'.format(response.status_code, data))
+
+        if response.status_code == 200:
+            status = 'started'
+            if data['ResultCode'] == '1001':
+                status = 'settled'
+            return {
+                'response': data,
+                'status': status,
+            }
+        else:
+            status = 'started'
+
+            return {
+                'response': data,
+                'status': status,
+                'error': data['Envelope']['Body']['Fault']['faultstring'],
+            }
+
+    def simulate_transaction(self, amount, phone_number, reference, shortcode=None):
+        timestamp = datetime.now().strftime('%Y%m%d%H%M%S')
+        access_token = self.get_access_token()
         if not shortcode:
             shortcode = self.shortcode
 
-        timestamp = now().strftime('%Y%m%d%H%M%S')
-        access_token = self.get_access_token()
         if not access_token:
             return {
                 'response': {},
@@ -165,16 +225,20 @@ class PaymentService(object):
 
         headers = {"Authorization": "Bearer %s" % access_token}
         request = {
-            "CommandID": "CustomerPayBillOnline",
-            "Amount": self._generate_password(timestamp),
-            "Msisdn": timestamp,
+            "CommandID": 'CustomerPayBillOnline',
+            "Amount": str(int(amount)),
+            "Msisdn": phone_number,
             "BillRefNumber": reference,
             "ShortCode": shortcode
         }
-        url = self.server + self.simulate_path
+        url = self.server + self.query_request_path
         response = requests.post(url, json=request, headers=headers)
-
         data = response.json()
+
+        if self.debug:
+            logging.debug('URL: {}'.format(url))
+            logging.debug('Request payload:\n {}'.format(request))
+            logging.debug('Response {}:\n {}'.format(response.status_code, data))
 
         if response.status_code == 200:
             status = 'started'
