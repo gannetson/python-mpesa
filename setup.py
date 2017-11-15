@@ -4,9 +4,6 @@ import os
 import setuptools
 import mpesa
 
-with open(os.path.join(os.path.dirname(__file__), 'README.md')) as readme:
-    README = readme.read()
-
 os.chdir(os.path.normpath(os.path.join(os.path.abspath(__file__), os.pardir)))
 
 setuptools.setup(
@@ -16,12 +13,13 @@ setuptools.setup(
     include_package_data=True,
     license='BSD',
     description='M-Pesa API G2 Python adapter',
-    long_description=README,
+    long_description='Python adapter for Safaricom M-Pesa API G2.',
     url="http://onepercentclub.com",
     author="Loek van Gent",
     author_email="hallo@loekvan.gent",
     install_requires=[
-        'suds'
+        'suds',
+        'requests[security]'
     ],
     tests_require=[
         'nose'
