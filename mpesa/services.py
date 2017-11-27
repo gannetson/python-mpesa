@@ -1,5 +1,4 @@
 import base64
-import hashlib
 import logging
 import requests
 from datetime import datetime
@@ -15,12 +14,13 @@ class PaymentService(object):
     server = live_server
 
     access_token_path = '/oauth/v1/generate?grant_type=client_credentials'
+
     process_request_path = '/mpesa/stkpush/v1/processrequest'
     query_request_path = '/mpesa/stkpushquery/v1/query'
     transaction_status_path = '/mpesa/transactionstatus/v1/query'
     simulate_transaction_path = '/mpesa/c2b/v1/simulate'
-
     balance_request_path = '/mpesa/accountbalance/v1/query'
+    register_url_path = '/mpesa/c2b/v1/registerurl'
 
     test_shortcode = '174379'
     test_passphrase = 'bfb279f9aa9bdbcf158e97dd71a467cd2e0c893059b10f78e6b72ada1ed2c919'
@@ -30,8 +30,9 @@ class PaymentService(object):
     access_token = None
 
     code_mapping = {
-        '1037': 'timout',
+        '1037': 'timeout',
         '1001': 'started',
+        '1101': 'started',
     }
 
     def __init__(self, consumer_key, consumer_password, shortcode=None, passphrase=None, live=False, debug=False):
@@ -40,6 +41,7 @@ class PaymentService(object):
         self.live = live
         self.debug = debug
         if debug:
+            logger.setLevel('DEBUG')
             logger.debug('Initiated M-Pesa Payment Service')
         if not live:
             self.server = self.test_server
@@ -49,9 +51,19 @@ class PaymentService(object):
             self.shortcode = shortcode
             self.passphrase = passphrase
 
+    def get_mapped_status(self, code):
+        try:
+            return self.code_mapping[code]
+        except KeyError:
+            logger.warn('Could not map status code {}'.format(code))
+            return 'unknown'
+
     def get_access_token(self):
         url = self.server + self.access_token_path
         response = requests.get(url, auth=(self.consumer_key, self.consumer_password))
+        if self.debug:
+            logger.debug('Getting access token')
+            logger.debug('URL: {}'.format(url))
         if response.status_code == 200:
             data = response.json()
             self.access_token = data['access_token']
@@ -92,10 +104,11 @@ class PaymentService(object):
         url = self.server + self.process_request_path
         response = requests.post(url, json=request, headers=headers)
         data = response.json()
+
         if self.debug:
             logging.debug('URL: {}'.format(url))
             logging.debug('Request payload:\n {}'.format(request))
-            logging.debug('Response {}:\n {}'.format(response.status_code, data))
+            logging.debug('Response {}: {}'.format(response.status_code, data))
 
         if response.status_code == 200:
             return {
@@ -129,34 +142,29 @@ class PaymentService(object):
             "Timestamp": timestamp,
             "CheckoutRequestID": request_id
         }
-        url = self.server + self.simulate_transaction_path
+        url = self.server + self.query_request_path
         response = requests.post(url, json=request, headers=headers)
-
         data = response.json()
+
         if self.debug:
             logging.debug('URL: {}'.format(url))
             logging.debug('Request payload:\n {}'.format(request))
             logging.debug('Response {}:\n {}'.format(response.status_code, data))
 
         if response.status_code == 200:
-            status = 'started'
-            if data['ResultCode'] == '1001':
-                status = 'settled'
             return {
                 'response': data,
-                'status': status,
+                'status': self.get_mapped_status(data['ResultCode']),
+                'request_id': request_id
             }
         else:
-            status = 'started'
-
             return {
                 'response': data,
-                'status': status,
+                'status': 'failed',
                 'error': data['errorMessage'],
             }
 
     def transaction_status_request(self, phone_number, reference):
-        timestamp = datetime.now().strftime('%Y%m%d%H%M%S')
         access_token = self.get_access_token()
 
         if not access_token:
@@ -164,7 +172,7 @@ class PaymentService(object):
                 'response': {},
                 'status': 'failed',
                 'error': 'Could not get access token',
-                'request_id': ''
+                'request_id': reference
             }
 
         timeout_url = 'https://api.twende.co.ke/payments/update-timeout'
@@ -199,6 +207,7 @@ class PaymentService(object):
             return {
                 'response': data,
                 'status': status,
+                'request_id': reference
             }
         else:
             status = 'started'
@@ -207,10 +216,10 @@ class PaymentService(object):
                 'response': data,
                 'status': status,
                 'error': data['Envelope']['Body']['Fault']['faultstring'],
+                'request_id': reference
             }
 
     def simulate_transaction(self, amount, phone_number, reference, shortcode=None):
-        timestamp = datetime.now().strftime('%Y%m%d%H%M%S')
         access_token = self.get_access_token()
         if not shortcode:
             shortcode = self.shortcode
@@ -225,13 +234,13 @@ class PaymentService(object):
 
         headers = {"Authorization": "Bearer %s" % access_token}
         request = {
-            "CommandID": 'CustomerPayBillOnline',
+            "CommandID": 'CustomerBuyGoodsOnline',
             "Amount": str(int(amount)),
             "Msisdn": phone_number,
             "BillRefNumber": reference,
             "ShortCode": shortcode
         }
-        url = self.server + self.query_request_path
+        url = self.server + self.simulate_transaction_path
         response = requests.post(url, json=request, headers=headers)
         data = response.json()
 
@@ -241,18 +250,56 @@ class PaymentService(object):
             logging.debug('Response {}:\n {}'.format(response.status_code, data))
 
         if response.status_code == 200:
-            status = 'started'
-            if data['ResultCode'] == '1001':
-                status = 'settled'
             return {
                 'response': data,
-                'status': status,
+                'status': 'pending',
             }
         else:
-            status = 'started'
-
             return {
                 'response': data,
-                'status': status,
+                'status': 'failed',
+                'error': data['errorMessage'],
+            }
+
+    def register_url(self, validation_url, confirmation_url=None, response_type="Completed", shortcode=None):
+        access_token = self.get_access_token()
+        if not confirmation_url:
+            confirmation_url = validation_url
+        if not shortcode:
+            shortcode = self.shortcode
+
+        if not access_token:
+            return {
+                'response': {},
+                'status': 'failed',
+                'error': 'Could not get access token',
+                'request_id': ''
+            }
+
+        headers = {"Authorization": "Bearer %s" % access_token}
+        request = {
+            "ValidationURL": validation_url,
+            "ConfirmationURL": confirmation_url,
+            "ResponseType": response_type,
+            "ShortCode": shortcode
+        }
+        url = self.server + self.register_url_path
+        response = requests.post(url, json=request, headers=headers)
+        data = response.json()
+
+        if self.debug:
+            logging.debug('URL: {}'.format(url))
+            logging.debug('Request payload:\n {}'.format(request))
+            logging.debug('Response {}:\n {}'.format(response.status_code, data))
+
+        if response.status_code == 200:
+            return {
+                'response': data,
+                'status': 'ok',
+            }
+        else:
+            return {
+                'response': data,
+                'status': 'failed',
                 'error': data['errorMessage'],
             }

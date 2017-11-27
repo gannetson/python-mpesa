@@ -14,7 +14,7 @@ setuptools.setup(
     license='BSD',
     description='M-Pesa API G2 Python adapter',
     long_description='Python adapter for Safaricom M-Pesa API G2.',
-    url="http://onepercentclub.com",
+    url="https://goodup.com",
     author="Loek van Gent",
     author_email="hallo@loekvan.gent",
     install_requires=[
@@ -22,9 +22,16 @@ setuptools.setup(
         'requests[security]'
     ],
     tests_require=[
+        'pytest',
         'nose'
     ],
     test_suite='nose.collector',
+
+    setup_requires=[
+        'pytest-runner',
+        'suds',
+        'requests[security]'
+    ],
     classifiers=[
         'Environment :: Web Environment',
         'Intended Audience :: Developers',
