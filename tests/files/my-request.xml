@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<SOAP-ENV:Envelope xmlns:ns0="http://schemas.xmlsoap.org/soap/envelope/" xmlns:ns1="tns:ns" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:tns="tns:ns" xmlns:SOAP-ENV="http://schemas.xmlsoap.org/soap/envelope/">
+   <SOAP-ENV:Header>
+      <tns:CheckOutHeader>
+         <MERCHANT_ID>1</MERCHANT_ID>
+         <PASSWORD>OTRENkM0RDUxODJCMDgzMDVGRkVEMTdGNjVBNzJGRjREN0QzN0UwNEMwQTk4RTFDNUVCQkQyMjEyM0FFMkM5OQ==</PASSWORD>
+         <TIMESTAMP>1475917802.16</TIMESTAMP>
+      </tns:CheckOutHeader>
+   </SOAP-ENV:Header>
+   <ns0:Body>
+      <ns1:processCheckOutRequest>
+         <MERCHANT_TRANSACTION_ID>order-101</MERCHANT_TRANSACTION_ID>
+         <REFERENCE_ID>project-431</REFERENCE_ID>
+         <AMOUNT>500</AMOUNT>
+         <MSISDN>user-80</MSISDN>
+         <CALL_BACK_URL>http://localhost:8000/payments_mpesa/status</CALL_BACK_URL>
+         <CALL_BACK_METHOD>json</CALL_BACK_METHOD>
+         <TIMESTAMP>1475917802.16</TIMESTAMP>
+      </ns1:processCheckOutRequest>
+   </ns0:Body>
+</SOAP-ENV:Envelope>
