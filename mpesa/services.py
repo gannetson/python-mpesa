@@ -129,10 +129,11 @@ class PaymentService(object):
             "Timestamp": timestamp,
             "CheckoutRequestID": request_id
         }
-        url = self.server + self.simulate_transaction_path
+        url = self.server + self.query_request_path
         response = requests.post(url, json=request, headers=headers)
 
         data = response.json()
+
         if self.debug:
             logging.debug('URL: {}'.format(url))
             logging.debug('Request payload:\n {}'.format(request))
@@ -158,6 +159,7 @@ class PaymentService(object):
     def transaction_status_request(self, phone_number, reference):
         timestamp = datetime.now().strftime('%Y%m%d%H%M%S')
         access_token = self.get_access_token()
+        password = self._generate_password(timestamp)
 
         if not access_token:
             return {
@@ -167,23 +169,25 @@ class PaymentService(object):
                 'request_id': ''
             }
 
-        timeout_url = 'https://api.twende.co.ke/payments/update-timeout'
-        result_url = 'https://api.twende.co.ke/payments/update-result'
+        timeout_url = 'https://api.twende.co.ke/payments/mpesa/timeout'
+        result_url = 'https://api.twende.co.ke/payments/mpessa/update'
 
         headers = {"Authorization": "Bearer %s" % access_token}
         request = {
             "CommandID": 'TransactionStatusQuery',
-            "PartyA": phone_number,
-            "IdentifierType": 'MSISDN',
+            "PartyA": self.shortcode,
+            "IdentifierType": "4",
             "Remarks": "Payment for Twende ride",
             "Initiator": self.shortcode,
-            "SecurityCredential": '',
+            "Timestamp": timestamp,
             "QueueTimeOutURL": timeout_url,
             "ResultURL": result_url,
+            "SecurityCredential": password,
             "TransactionID": reference,
-            "OriginalConversationID": reference,
+            "OriginalConversationID": '',
             "Occasion": '',
         }
+        print request
         url = self.server + self.transaction_status_path
         response = requests.post(url, json=request, headers=headers)
         data = response.json()
@@ -193,12 +197,9 @@ class PaymentService(object):
             logging.debug('Response {}:\n {}'.format(response.status_code, data))
 
         if response.status_code == 200:
-            status = 'started'
-            if data['ResultCode'] == '1001':
-                status = 'settled'
             return {
                 'response': data,
-                'status': status,
+                'status': 'started',
             }
         else:
             status = 'started'
