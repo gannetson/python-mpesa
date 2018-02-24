@@ -18,7 +18,6 @@ class PaymentService(object):
     process_request_path = '/mpesa/stkpush/v1/processrequest'
     query_request_path = '/mpesa/stkpushquery/v1/query'
     transaction_status_path = '/mpesa/transactionstatus/v1/query'
-    #  https://api.safaricom.co.ke/mpesa/transactionstatus/v1/query
     simulate_transaction_path = '/mpesa/c2b/v1/simulate'
 
     balance_request_path = '/mpesa/accountbalance/v1/query'
@@ -102,13 +101,13 @@ class PaymentService(object):
         if response.status_code == 200:
             return {
                 'response': data,
-                'status': 'started',
+                'status': 'Started',
                 'request_id': data['CheckoutRequestID']
             }
         else:
             return {
                 'response': data,
-                'status': 'failed',
+                'status': 'Failed',
                 'error': data['errorMessage'],
                 'request_id': data['requestId']
             }
@@ -119,7 +118,7 @@ class PaymentService(object):
         if not access_token:
             return {
                 'response': {},
-                'status': 'failed',
+                'status': 'Failed',
                 'error': 'Could not get access token',
                 'request_id': ''
             }
@@ -142,23 +141,37 @@ class PaymentService(object):
             logging.debug('Response {}:\n {}'.format(response.status_code, data))
 
         if response.status_code == 200:
-            status = 'started'
-            if data['ResultCode'] == '1001':
-                status = 'settled'
+            if data.get('errorCode', None):
+                return {
+                    'response': data,
+                    'status': 'Started',
+                    'error': data['errorMessage'],
+                    'request_id': data['requestId']
+                }
+
+            if data.get('ResponseCode', None) == '0':
+                return {
+                    'response': data,
+                    'status': 'Success',
+                    'request_id': data['CheckoutRequestID']
+                }
             return {
                 'response': data,
-                'status': status,
+                'status': 'Started',
+                'request_id': data['CheckoutRequestID']
             }
+
         else:
-            status = 'started'
-
             return {
                 'response': data,
-                'status': status,
+                'status': 'Failed',
                 'error': data['errorMessage'],
+                'request_id': data['requestId']
             }
 
-    def transaction_status_request(self, phone_number, reference):
+    def transaction_status_request(self, phone_number, reference, result_url, timeout_url=None):
+        if not timeout_url:
+            timeout_url = result_url
         timestamp = datetime.now().strftime('%Y%m%d%H%M%S')
         access_token = self.get_access_token()
         password = self._generate_password(timestamp)
@@ -170,9 +183,6 @@ class PaymentService(object):
                 'error': 'Could not get access token',
                 'request_id': ''
             }
-
-        timeout_url = 'https://api.twende.co.ke/payments/mpesa/timeout'
-        result_url = 'https://api.twende.co.ke/payments/mpessa/update'
 
         headers = {"Authorization": "Bearer %s" % access_token}
         request = {
@@ -189,7 +199,6 @@ class PaymentService(object):
             "OriginalConversationID": '',
             "Occasion": '',
         }
-        print request
         url = self.server + self.transaction_status_path
         response = requests.post(url, json=request, headers=headers)
         data = response.json()
@@ -199,16 +208,25 @@ class PaymentService(object):
             logging.debug('Response {}:\n {}'.format(response.status_code, data))
 
         if response.status_code == 200:
-            return {
-                'response': data,
-                'status': 'started',
-            }
-        else:
-            status = 'started'
+            if data.get('errorCode', None):
+                return {
+                    'response': data,
+                    'status': 'Started',
+                    'error': data['errorMessage'],
+                    'request_id': data['requestId']
+                }
 
+            if data.get('ResponseCode', None) == '0':
+                return {
+                    'response': data,
+                    'status': 'Success',
+                    'request_id': data['CheckoutRequestID']
+                }
+
+        else:
             return {
                 'response': data,
-                'status': status,
+                'status': 'Failed',
                 'error': data['Envelope']['Body']['Fault']['faultstring'],
             }
 
