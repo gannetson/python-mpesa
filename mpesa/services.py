@@ -18,6 +18,7 @@ class PaymentService(object):
     process_request_path = '/mpesa/stkpush/v1/processrequest'
     query_request_path = '/mpesa/stkpushquery/v1/query'
     transaction_status_path = '/mpesa/transactionstatus/v1/query'
+    #  https://api.safaricom.co.ke/mpesa/transactionstatus/v1/query
     simulate_transaction_path = '/mpesa/c2b/v1/simulate'
 
     balance_request_path = '/mpesa/accountbalance/v1/query'
@@ -52,6 +53,7 @@ class PaymentService(object):
     def get_access_token(self):
         url = self.server + self.access_token_path
         response = requests.get(url, auth=(self.consumer_key, self.consumer_password))
+
         if response.status_code == 200:
             data = response.json()
             self.access_token = data['access_token']

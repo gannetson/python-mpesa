@@ -19,19 +19,13 @@ setuptools.setup(
     author_email="hallo@loekvan.gent",
     install_requires=[
         'suds',
-        'requests[security]'
+        'requests[security]==2.8.1'
     ],
     tests_require=[
         'pytest',
         'nose'
     ],
     test_suite='nose.collector',
-
-    setup_requires=[
-        'pytest-runner',
-        'suds',
-        'requests[security]'
-    ],
     classifiers=[
         'Environment :: Web Environment',
         'Intended Audience :: Developers',
