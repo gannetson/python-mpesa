@@ -19,7 +19,7 @@ setuptools.setup(
     author_email="hallo@loekvan.gent",
     install_requires=[
         'suds',
-        'requests[security]>=2.8.1'
+        'requests[security]>2.8.1'
     ],
     tests_require=[
         'pytest',
