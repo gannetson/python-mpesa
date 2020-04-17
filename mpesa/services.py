@@ -62,7 +62,7 @@ class PaymentService(object):
 
     def _generate_password(self, timestamp):
         string = str(self.shortcode + self.passphrase + timestamp)
-        return base64.b64encode(string)
+        return base64.b64encode(string.encode('utf-8'))
 
     def process_request(self, phone_number=None, amount=None,
                         callback_url=None, reference="", description=""):
